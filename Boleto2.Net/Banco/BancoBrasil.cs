@@ -165,17 +165,112 @@ namespace Boleto2Net
 
         public void LerHeaderRetornoCNAB240(ArquivoRetorno arquivoRetorno, string registro)
         {
-            throw new NotImplementedException();
+            ////144 - 151 Data de geração do arquivo N 008 DDMMAAAA
+            //arquivoRetorno.DataGeracao = Utils.ToDateTime(Utils.ToInt32(registro.Substring(143, 8)).ToString("##-##-####"));
+            ////158 - 163 Nº seqüencial do arquivo N 006
+            //arquivoRetorno.NumeroSequencial = Utils.ToInt32(registro.Substring(157, 6));
         }
 
         public void LerDetalheRetornoCNAB240SegmentoT(ref Boleto boleto, string registro)
         {
-            throw new NotImplementedException();
+            try
+            {
+                //Nº Controle do Participante
+                boleto.NumeroControleParticipante = registro.Substring(105, 25);
+
+                //Carteira
+                boleto.Carteira = registro.Substring(57, 1);
+                switch (boleto.Carteira)
+                {
+                    case "1":
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaSimples;
+                        break;
+                    case "2":
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaVinculada;
+                        break;
+                    case "3":
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaCaucionada;
+                        break;
+                    case "4":
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaDescontada;
+                        break;
+                    case "5":
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaVendor;
+                        break;
+                    default:
+                        boleto.TipoCarteira = TipoCarteira.CarteiraCobrancaSimples;
+                        break;
+                }
+
+                //Identificação do Título no Banco
+                //CCCCCCCNNNNNNNNNN convênios com numeração acima de 1.000.000, onde:
+                //"C" - é o número do convênio fornecido pelo Banco (número fixo e não pode ser alterado)
+                //"N" - é um sequencial atribuído pelo cliente
+                // Como visto no manual o BB não possui DV e os 3 ultimos digitos do campo são espaços vazio
+                string tmp = registro.Substring(37, 20);
+                boleto.NossoNumero = tmp.Substring(0, 17);
+                boleto.NossoNumeroDV = tmp.Substring(0, 17);
+
+                //Identificação de Ocorrência
+                boleto.CodigoOcorrencia = registro.Substring(15, 2);
+                boleto.DescricaoOcorrencia = Cnab.OcorrenciaCnab240(boleto.CodigoOcorrencia);
+                boleto.CodigoOcorrenciaAuxiliar = registro.Substring(213, 10);
+
+                //Número do Documento
+                boleto.NumeroDocumento = registro.Substring(58, 15);
+                boleto.EspecieDocumento = TipoEspecieDocumento.NaoDefinido;
+
+                //Valor do Título
+                boleto.ValorTitulo = Convert.ToDecimal(registro.Substring(81, 15)) / 100;
+                boleto.ValorTarifas = Convert.ToDecimal(registro.Substring(198, 15)) / 100;
+
+                //Data Vencimento do Título
+                boleto.DataVencimento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(73, 8)).ToString("##-##-####"));
+
+                //Dados Sacado
+                boleto.Sacado = new Sacado();
+                string str = registro.Substring(133, 15);
+                boleto.Sacado.CPFCNPJ = str.Substring(str.Length - 14, 14);
+                boleto.Sacado.Nome = registro.Substring(148, 40);
+
+
+                // Registro Retorno
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Erro ao ler detalhe do arquivo de RETORNO / CNAB 240 / T.", ex);
+            }
         }
 
         public void LerDetalheRetornoCNAB240SegmentoU(ref Boleto boleto, string registro)
         {
-            throw new NotImplementedException();
+             try
+            {
+                //Valor do Título
+                boleto.ValorJurosDia = Convert.ToDecimal(registro.Substring(17, 15)) / 100;
+                boleto.ValorDesconto = Convert.ToDecimal(registro.Substring(32, 15)) / 100;
+                boleto.ValorAbatimento = Convert.ToDecimal(registro.Substring(47, 15)) / 100;
+                boleto.ValorIOF = Convert.ToDecimal(registro.Substring(62, 15)) / 100;
+                boleto.ValorPago = Convert.ToDecimal(registro.Substring(77, 15)) / 100;
+                boleto.ValorPagoCredito = Convert.ToDecimal(registro.Substring(92, 15)) / 100;
+                boleto.ValorOutrasDespesas = Convert.ToDecimal(registro.Substring(107, 15)) / 100;
+                boleto.ValorOutrosCreditos = Convert.ToDecimal(registro.Substring(122, 15)) / 100;
+
+
+                //Data Ocorrência no Banco
+                boleto.DataProcessamento = Utils.ToDateTime(Utils.ToInt32(registro.Substring(137, 8)).ToString("##-##-####"));
+
+                // Data do Crédito
+                boleto.DataCredito = Utils.ToDateTime(Utils.ToInt32(registro.Substring(145, 8)).ToString("##-##-####"));
+
+                // Registro Retorno
+                boleto.RegistroArquivoRetorno = boleto.RegistroArquivoRetorno + registro + Environment.NewLine;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Erro ao ler detalhe do arquivo de RETORNO / CNAB 240 / U.", ex);
+            }
         }
 
         private static TipoEspecieDocumento AjustaEspecieCnab400(string codigoEspecie)
